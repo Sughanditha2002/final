@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     openai_api_key: str = Field(default='NONE')
     send_real_mail: bool = Field(default=False)
 
-    # ✅ Email configuration for FastAPI-Mail (matches ConnectionConfig exactly)
+    
     mail_username: str = Field(default='your@mail.com', description="MAIL_USERNAME")
     mail_password: str = Field(default='yourpassword', description="MAIL_PASSWORD")
     mail_from: str = Field(default='your@mail.com', description="MAIL_FROM")
@@ -53,5 +53,5 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = 'utf-8'
 
-# ✅ Create a settings instance
+
 settings = Settings()
