@@ -28,8 +28,8 @@ class UserBase(BaseModel):
     bio: Optional[str] = Field(None, example="Experienced software developer specializing in web applications.")
 
     profile_picture_url: Optional[str] = Field(
-        None, 
-        description="URL for the user's profile picture. Must point to a valid image file format such as .jpeg, .jpg, or .png.", 
+        None,
+        description="URL for the user's profile picture. Must point to a valid image file format such as .jpeg, .jpg, or .png.",
         example="https://example.com/profiles/john.jpg"
     )
     linkedin_profile_url: Optional[str] = Field(None, example="https://linkedin.com/in/johndoe")
@@ -56,8 +56,8 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     email: EmailStr = Field(..., example="john.doe@example.com")
     password: str = Field(..., example="Secure*1234")
+    role: UserRole = Field(default=UserRole.AUTHENTICATED, example="AUTHENTICATED")
 
-    # Updated Password Validation
     @validator('password')
     def validate_password(cls, password):
         if len(password) < 8:
@@ -84,7 +84,6 @@ class UserUpdate(UserBase):
     github_profile_url: Optional[str] = Field(None, example="https://github.com/johndoe")
     role: Optional[str] = Field(None, example="AUTHENTICATED")
 
-    # Ensure at least one value is provided
     @root_validator(pre=True)
     def check_at_least_one_value(cls, values):
         if not any(values.values()):

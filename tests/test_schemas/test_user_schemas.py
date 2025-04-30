@@ -3,6 +3,7 @@ import pytest
 from pydantic import ValidationError
 from datetime import datetime
 from app.schemas.user_schemas import UserBase, UserCreate, UserUpdate, UserResponse, UserListResponse, LoginRequest
+from app.models.user_model import UserRole
 
 # Fixtures for common test data
 @pytest.fixture
@@ -43,9 +44,6 @@ def user_response_data(user_base_data):
         "last_name": user_base_data["last_name"],
         "role": user_base_data["role"],
         "email": user_base_data["email"],
-        # "last_login_at": datetime.now(),
-        # "created_at": datetime.now(),
-        # "updated_at": datetime.now(),
         "links": []
     }
 
@@ -75,7 +73,6 @@ def test_user_update_valid(user_update_data):
 def test_user_response_valid(user_response_data):
     user = UserResponse(**user_response_data)
     assert user.id == user_response_data["id"]
-    # assert user.last_login_at == user_response_data["last_login_at"]
 
 # Tests for LoginRequest
 def test_login_request_valid(login_request_data):
@@ -108,3 +105,38 @@ def test_user_base_url_invalid(url, user_base_data):
     user_base_data["profile_picture_url"] = url
     with pytest.raises(ValidationError):
         UserBase(**user_base_data)
+
+# Parametrized tests for password validation
+@pytest.mark.parametrize("password", [
+    "Secure*1234",       # Contains uppercase, lowercase, digit, special character, and meets length requirement
+    "MySecure$456",      # Meets all conditions
+    "Valid@2021Test",    # Meets all conditions
+    "!Strong1Password",  # Meets all conditions
+])
+def test_password_valid(password, user_create_data):
+    user_create_data["password"] = password
+    user = UserCreate(**user_create_data)
+    assert user.password == password
+
+@pytest.mark.parametrize("password", [
+    "short",             # Too short
+    "nouppercase1!",     # Missing uppercase letter
+    "NOLOWERCASE1!",     # Missing lowercase letter
+    "NoSpecial12345",    # Missing special character
+    "NoDigit!Password",  # Missing digit
+])
+def test_password_invalid(password, user_create_data):
+    user_create_data["password"] = password
+    with pytest.raises(ValidationError):
+        UserCreate(**user_create_data)
+
+# Tests for UserCreate role defaults and explicit assignment
+def test_user_create_with_default_role(user_create_data):
+    user_create_data.pop("role", None) 
+    user = UserCreate(**user_create_data)
+    assert user.role == UserRole.AUTHENTICATED
+
+def test_user_create_with_explicit_role(user_create_data):
+    user_create_data["role"] = UserRole.ADMIN
+    user = UserCreate(**user_create_data)
+    assert user.role == UserRole.ADMIN
