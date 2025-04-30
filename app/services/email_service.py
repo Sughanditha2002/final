@@ -1,39 +1,20 @@
-from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
-from app.models.user_model import User
+from builtins import ValueError, dict, str
 from settings.config import settings
-from app.utils.template_manager import TemplateManager
 from app.utils.smtp_connection import SMTPClient
-
-# ✅ FastAPI-Mail configuration using values from settings
-config = ConnectionConfig(
-    MAIL_USERNAME=settings.mail_username,
-    MAIL_PASSWORD=settings.mail_password,
-    MAIL_FROM=settings.mail_from,
-    MAIL_PORT=settings.mail_port,
-    MAIL_SERVER=settings.mail_server,
-    MAIL_STARTTLS=settings.mail_starttls,
-    MAIL_SSL_TLS=settings.mail_ssl_tls,
-    USE_CREDENTIALS=settings.use_credentials,
-    VALIDATE_CERTS=settings.validate_certs
-)
-
-# ✅ FastAPI-Mail instance
-mail = FastMail(config)
+from app.utils.template_manager import TemplateManager
+from app.models.user_model import User
 
 class EmailService:
     def __init__(self, template_manager: TemplateManager):
         self.smtp_client = SMTPClient(
-            server=settings.mail_server,
-            port=settings.mail_port,
-            username=settings.mail_username,
-            password=settings.mail_password
+            server=settings.smtp_server,
+            port=settings.smtp_port,
+            username=settings.smtp_username,
+            password=settings.smtp_password
         )
         self.template_manager = template_manager
 
     async def send_user_email(self, user_data: dict, email_type: str):
-        """
-        Send an email using the template and SMTPClient based on email_type.
-        """
         subject_map = {
             'email_verification': "Verify Your Account",
             'password_reset': "Password Reset Instructions",
@@ -47,29 +28,14 @@ class EmailService:
         self.smtp_client.send_email(subject_map[email_type], html_content, user_data['email'])
 
     async def send_verification_email(self, user: User):
-        """
-        Send a verification email with a verification link using SMTPClient.
-        """
         verification_url = f"{settings.server_base_url}verify-email/{user.id}/{user.verification_token}"
-        user_data = {
+        await self.send_user_email({
             "name": user.first_name,
             "verification_url": verification_url,
             "email": user.email
-        }
-        await self.send_user_email(user_data, 'email_verification')
-        
-    async def send_email_via_fastapi_mail(self, user: User):
-        """
-        Send a verification email using FastAPI-Mail.
-        """
-        message = MessageSchema(
-            subject="Verify Your Account",
-            recipients=[user.email],
-            body=(
-                f"Hello {user.first_name},<br><br>"
-                f"Please verify your email using the following link: "
-                f"<a href='{settings.server_base_url}verify-email/{user.id}/{user.verification_token}'>Verify Email</a>"
-            ),
-            subtype="html"
-        )
-        await mail.send_message(message)
+        }, 'email_verification')
+
+    async def send_professional_upgrade_email(self, user_email: str):
+        subject = "Congratulations on Your New Professional Status!"
+        body = "Dear user, your profile has been upgraded to professional status. Enjoy the new benefits!"
+        self.smtp_client.send_email(user_email, subject, body)
