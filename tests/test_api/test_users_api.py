@@ -5,7 +5,7 @@ from app.main import app
 from app.models.user_model import User, UserRole
 from app.utils.nickname_gen import generate_nickname
 from app.utils.security import hash_password
-from app.services.jwt_service import decode_token  # Import your FastAPI app
+from app.services.jwt_service import decode_token  
 from urllib.parse import urlencode
 
 @pytest.mark.asyncio
@@ -172,9 +172,7 @@ async def test_list_users_unauthorized(async_client, user_token):
 async def test_update_user_email_access_allowed_test1(async_client, admin_user, verified_user, admin_token):
     updated_data = {"email": f"updated_{admin_user.id}@example.com"}
     headers = {"Authorization": f"Bearer {admin_token}"}
-    # Update admin user
     response = await async_client.put(f"/users/{admin_user.id}", json=updated_data, headers=headers)
-    # Update admin user again with the same email (should be allowed)
     response = await async_client.put(f"/users/{admin_user.id}", json=updated_data, headers=headers)
     assert response.status_code == 200
 

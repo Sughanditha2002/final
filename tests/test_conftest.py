@@ -56,9 +56,13 @@ async def test_user_unlock(db_session, locked_user):
 
 @pytest.mark.asyncio
 async def test_update_professional_status(db_session, verified_user):
+    """Test updating professional status for a verified user."""
     verified_user.update_professional_status(True)
     await db_session.commit()
+
+    # Verify the updated user status in the database
     result = await db_session.execute(select(User).filter_by(email=verified_user.email))
     updated_user = result.scalars().first()
+
     assert updated_user.is_professional
     assert updated_user.professional_status_updated_at is not None
