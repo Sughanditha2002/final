@@ -5,7 +5,7 @@ from datetime import datetime
 from app.schemas.user_schemas import UserBase, UserCreate, UserUpdate, UserResponse, UserListResponse, LoginRequest
 from app.models.user_model import UserRole
 
-
+# Fixtures for common test data
 @pytest.fixture
 def user_base_data():
     return {
@@ -51,30 +51,36 @@ def user_response_data(user_base_data):
 def login_request_data():
     return {"email": "john_doe_123@emai.com", "password": "SecurePassword123!"}
 
+# Tests for UserBase
 def test_user_base_valid(user_base_data):
     user = UserBase(**user_base_data)
     assert user.nickname == user_base_data["nickname"]
     assert user.email == user_base_data["email"]
 
+# Tests for UserCreate
 def test_user_create_valid(user_create_data):
     user = UserCreate(**user_create_data)
     assert user.nickname == user_create_data["nickname"]
     assert user.password == user_create_data["password"]
 
+# Tests for UserUpdate
 def test_user_update_valid(user_update_data):
     user_update = UserUpdate(**user_update_data)
     assert user_update.email == user_update_data["email"]
     assert user_update.first_name == user_update_data["first_name"]
 
+# Tests for UserResponse
 def test_user_response_valid(user_response_data):
     user = UserResponse(**user_response_data)
     assert user.id == user_response_data["id"]
 
+# Tests for LoginRequest
 def test_login_request_valid(login_request_data):
     login = LoginRequest(**login_request_data)
     assert login.email == login_request_data["email"]
     assert login.password == login_request_data["password"]
 
+# Parametrized tests for nickname and email validation
 @pytest.mark.parametrize("nickname", ["test_user", "test-user", "testuser123", "123test"])
 def test_user_base_nickname_valid(nickname, user_base_data):
     user_base_data["nickname"] = nickname
@@ -87,6 +93,7 @@ def test_user_base_nickname_invalid(nickname, user_base_data):
     with pytest.raises(ValidationError):
         UserBase(**user_base_data)
 
+# Parametrized tests for URL validation
 @pytest.mark.parametrize("url", ["http://valid.com/profile.jpg", "https://valid.com/profile.png", None])
 def test_user_base_url_valid(url, user_base_data):
     user_base_data["profile_picture_url"] = url
@@ -99,11 +106,12 @@ def test_user_base_url_invalid(url, user_base_data):
     with pytest.raises(ValidationError):
         UserBase(**user_base_data)
 
+# Parametrized tests for password validation
 @pytest.mark.parametrize("password", [
-    "Secure*1234",
-    "MySecure$456",      
-    "Valid@2021Test",    
-    "!Strong1Password",  
+    "Secure*1234",       # Contains uppercase, lowercase, digit, special character, and meets length requirement
+    "MySecure$456",      # Meets all conditions
+    "Valid@2021Test",    # Meets all conditions
+    "!Strong1Password",  # Meets all conditions
 ])
 def test_password_valid(password, user_create_data):
     user_create_data["password"] = password
@@ -111,17 +119,18 @@ def test_password_valid(password, user_create_data):
     assert user.password == password
 
 @pytest.mark.parametrize("password", [
-    "short",             
-    "nouppercase1!",     
-    "NOLOWERCASE1!",     
-    "NoSpecial12345",    
-    "NoDigit!Password",  
+    "short",             # Too short
+    "nouppercase1!",     # Missing uppercase letter
+    "NOLOWERCASE1!",     # Missing lowercase letter
+    "NoSpecial12345",    # Missing special character
+    "NoDigit!Password",  # Missing digit
 ])
 def test_password_invalid(password, user_create_data):
     user_create_data["password"] = password
     with pytest.raises(ValidationError):
         UserCreate(**user_create_data)
 
+# Tests for UserCreate role defaults and explicit assignment
 def test_user_create_with_default_role(user_create_data):
     user_create_data.pop("role", None) 
     user = UserCreate(**user_create_data)

@@ -3,16 +3,17 @@ from datetime import datetime, timezone
 import secrets
 from typing import Optional, Dict, List
 from pydantic import ValidationError
-from sqlalchemy import func, update, select
+from sqlalchemy import func, null, update, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.dependencies import get_settings
-from app.models.user_model import User, UserRole
+from app.dependencies import get_email_service, get_settings
+from app.models.user_model import User
 from app.schemas.user_schemas import UserCreate, UserUpdate
 from app.utils.nickname_gen import generate_nickname
 from app.utils.security import generate_verification_token, hash_password, verify_password
-from app.services.email_service import EmailService
 from uuid import UUID
+from app.services.email_service import EmailService
+from app.models.user_model import UserRole
 import logging
 
 settings = get_settings()
@@ -56,32 +57,23 @@ class UserService:
             if existing_user:
                 logger.error("User with given email already exists.")
                 return None
-
             validated_data['hashed_password'] = hash_password(validated_data.pop('password'))
             new_user = User(**validated_data)
             new_nickname = generate_nickname()
             while await cls.get_by_nickname(session, new_nickname):
                 new_nickname = generate_nickname()
             new_user.nickname = new_nickname
-
             logger.info(f"User Role: {new_user.role}")
             user_count = await cls.count(session)
             new_user.role = UserRole.ADMIN if user_count == 0 else UserRole.ANONYMOUS
-
             if new_user.role == UserRole.ADMIN:
                 new_user.email_verified = True
             else:
-                # Generate verification token and send the verification email
                 new_user.verification_token = generate_verification_token()
                 await email_service.send_verification_email(new_user)
 
-            # Add the user to the session
             session.add(new_user)
             await session.commit()
-
-            # Send verification email again to ensure delivery
-            await email_service.send_verification_email(new_user)
-
             return new_user
         except ValidationError as e:
             logger.error(f"Validation error during user creation: {e}")
@@ -91,15 +83,14 @@ class UserService:
     async def update(cls, session: AsyncSession, user_id: UUID, update_data: Dict[str, str]) -> Optional[User]:
         try:
             validated_data = UserUpdate(**update_data).model_dump(exclude_unset=True)
+
             if 'password' in validated_data:
                 validated_data['hashed_password'] = hash_password(validated_data.pop('password'))
-
             query = update(User).where(User.id == user_id).values(**validated_data).execution_options(synchronize_session="fetch")
             await cls._execute_query(session, query)
             updated_user = await cls.get_by_id(session, user_id)
-
             if updated_user:
-                session.refresh(updated_user)
+                session.refresh(updated_user)  # Explicitly refresh the updated user object
                 logger.info(f"User {user_id} updated successfully.")
                 return updated_user
             else:
@@ -185,7 +176,8 @@ class UserService:
     async def count(cls, session: AsyncSession) -> int:
         query = select(func.count()).select_from(User)
         result = await session.execute(query)
-        return result.scalar()
+        count = result.scalar()
+        return count
 
     @classmethod
     async def unlock_user_account(cls, session: AsyncSession, user_id: UUID) -> bool:
@@ -197,3 +189,31 @@ class UserService:
             await session.commit()
             return True
         return False
+
+    # Newly added methods
+    @classmethod
+    async def update_user(cls, session: AsyncSession, user_id: UUID, update_data: Dict[str, str]) -> Optional[User]:
+        user = await cls.get_by_id(session, user_id)
+        if user:
+            validated_data = UserUpdate(**update_data).model_dump(exclude_unset=True)
+            query = update(User).where(User.id == user.id).values(**validated_data).execution_options(synchronize_session="fetch")
+            await session.execute(query)
+            await session.commit()
+            return user
+        else:
+            raise Exception("User not found")
+
+    @classmethod
+    async def upgrade_to_professional(cls, session: AsyncSession, user_id: UUID, email_service: EmailService):
+        user = await cls.get_by_id(session, user_id)
+        email_flag = True
+        if user and user.is_professional == True:
+            email_flag = False
+        if user:
+            user.is_professional = True
+            user.professional_status_updated_at = datetime.now()
+            await session.commit()
+            if email_flag:
+                await email_service.send_professional_upgrade_email(user.email)
+            return user
+        return None
